@@ -2,10 +2,8 @@ name: Update Unlock Data
 
 on:
   schedule:
-    # Runs every day at 7:00 AM UTC
     - cron: '0 7 * * *'
   workflow_dispatch:
-    # Allows you to trigger manually from the GitHub Actions tab
 
 jobs:
   update:
@@ -33,7 +31,6 @@ jobs:
           const API_KEY = process.env.COINGLASS_API_KEY;
           const BASE_URL = 'open-api-v4.coinglass.com';
 
-          // ─── Fetch helper ────────────────────────────────────────────────────
           function fetchJSON(path) {
             return new Promise((resolve, reject) => {
               const options = {
@@ -59,36 +56,33 @@ jobs:
             });
           }
 
-          // ─── Sleep helper (respect rate limits) ─────────────────────────────
           const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-          // ─── Thresholds for fetching vesting detail ──────────────────────────
-          const VESTING_USD_THRESHOLD  = 100000;  // fetch vesting if unlock > $100k
-          const VESTING_PCT_THRESHOLD  = 0.5;     // or if > 0.5% of circulating
+          const VESTING_USD_THRESHOLD = 100000;
+          const VESTING_PCT_THRESHOLD = 0.5;
 
           async function main() {
             console.log('Fetching token unlock list...');
             const listRes = await fetchJSON('/api/coin/unlock-list');
 
             if (listRes.code !== '0' || !Array.isArray(listRes.data)) {
-              throw new Error(`Unexpected response from unlock-list: ${JSON.stringify(listRes).slice(0,300)}`);
+              throw new Error(`Unexpected response: ${JSON.stringify(listRes).slice(0,300)}`);
             }
 
             const now = Date.now();
+            console.log(`Total tokens from API: ${listRes.data.length}`);
 
-            // Filter to next 30 days and dedupe by symbol
+            // Dedupe by symbol, keep all future unlocks
             const seen = new Set();
-           const tokens = listRes.data.filter(t => {
-            const dt = t.next_unlock_date;
-            if (!dt) return false;
-            if (seen.has(t.symbol)) return false;
-            seen.add(t.symbol);
-            return dt >= now;
-          });
-            console.log('Raw API sample:', JSON.stringify(listRes.data.slice(0,2)));
-            console.log(`Found ${tokens.length} tokens with unlocks in next 30 days`);
+            const tokens = listRes.data.filter(t => {
+              if (!t.next_unlock_date) return false;
+              if (seen.has(t.symbol)) return false;
+              seen.add(t.symbol);
+              return t.next_unlock_date >= now;
+            });
 
-            // Normalize base fields
+            console.log(`Found ${tokens.length} tokens with upcoming unlocks`);
+
             const normalized = tokens.map(t => ({
               symbol:             t.symbol,
               name:               t.name,
@@ -98,25 +92,12 @@ jobs:
               next_unlock_date:   t.next_unlock_date,
               next_unlock_usd:    t.next_unlock_usd || 0,
               next_unlock_tokens: t.next_unlock_tokens || 0,
-              pct_circ:           (t.next_unlock_of_circulating || 0) * (t.next_unlock_of_circulating > 1 ? 1 : 100),
-              pct_supply:         (t.next_unlock_of_supply || 0) * (t.next_unlock_of_supply > 1 ? 1 : 100),
+              pct_circ:           t.next_unlock_of_circulating || 0,
+              pct_supply:         t.next_unlock_of_supply || 0,
               allocation_type:    null,
               vesting_type:       null,
             }));
 
-            // Fix pct values — API returns them as decimals (0.09) meaning 0.09%
-            // but sometimes as whole numbers for large unlocks. Normalize:
-            for (const t of normalized) {
-              // If pct_circ looks like it's already a percentage (> 0 and came from
-              // next_unlock_of_circulating which the API gives as a raw decimal like 0.0909)
-              // multiply by 100 to get the actual %
-              t.pct_circ   = (t.next_unlock_tokens / 1) && t.pct_circ < 10
-                ? t.pct_circ  // already looks right from API sample data
-                : t.pct_circ;
-              t.pct_supply = t.pct_supply;
-            }
-
-            // Fetch vesting details for significant tokens
             const significant = normalized.filter(t =>
               t.next_unlock_usd >= VESTING_USD_THRESHOLD ||
               t.pct_circ >= VESTING_PCT_THRESHOLD
@@ -126,14 +107,11 @@ jobs:
 
             for (const token of significant) {
               try {
-                await sleep(300); // 300ms between requests
-                console.log(`  → ${token.symbol}`);
+                await sleep(300);
+                console.log(`  -> ${token.symbol}`);
                 const vestRes = await fetchJSON(`/api/token-vesting?symbol=${token.symbol}`);
-
                 if (vestRes.code === '0' && vestRes.data) {
-                  const data = vestRes.data;
-                  // Find the allocation that has the next unlock
-                  const activeAlloc = (data.allocations || []).find(a =>
+                  const activeAlloc = (vestRes.data.allocations || []).find(a =>
                     !a.is_untracked &&
                     a.next_unlock &&
                     a.next_unlock.date === token.next_unlock_date
@@ -144,15 +122,14 @@ jobs:
                   }
                 }
               } catch (err) {
-                console.warn(`  ⚠ Failed to fetch vesting for ${token.symbol}: ${err.message}`);
+                console.warn(`  Failed vesting for ${token.symbol}: ${err.message}`);
               }
             }
 
-            // Write data.js
             const meta = {
               generated_at: new Date().toISOString(),
-              token_count: normalized.length,
-              source: 'Coinglass API v4',
+              token_count:  normalized.length,
+              source:       'Coinglass API v4',
             };
 
             const output = [
@@ -163,7 +140,7 @@ jobs:
             ].join('\n\n');
 
             fs.writeFileSync('data.js', output, 'utf8');
-            console.log(`✓ Wrote data.js with ${normalized.length} tokens`);
+            console.log(`Done. Wrote data.js with ${normalized.length} tokens`);
           }
 
           main().catch(err => {
@@ -177,6 +154,5 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data.js
-          # Only commit if data.js actually changed
           git diff --staged --quiet || git commit -m "chore: update unlock data $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push
