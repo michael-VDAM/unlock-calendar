@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Token Unlock Calendar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #070710;
+      --bg2: #0c0c18;
+      --bg3: #0e0e1a;
+      --border: #14142a;
+      --border2: #1e1e30;
+      --text: #e0e0e0;
+      --text2: #888;
+      --text3: #3a3a5a;
+      --mono: 'IBM Plex Mono', monospace;
+      --sans: 'IBM Plex Sans', sans-serif;
+      --red: #ff4040;
+      --orange: #ff8c00;
+      --yellow: #e8c547;
+      --blue: #4a8fff;
+      --green: #3d9e6e;
+    }
+    body { background: var(--bg); color: var(--text); font-family: var(--mono); min-height: 100vh; padding: 28px; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
+
+    /* Layout */
+    .header { margin-bottom: 24px; }
+    .header-eyebrow { font-size: 9px; color: var(--text3); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 8px; }
+    .header-row { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px; }
+    .header-title { font-family: var(--sans); font-size: 26px; font-weight: 700; color: #f2f2f2; letter-spacing: -0.5px; }
+    .header-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+    .header-meta { font-size: 10px; color: var(--text3); margin-top: 2px; }
+
+    .view-toggle { display: flex; gap: 4px; }
+    .view-btn {
+      padding: 5px 14px; border: 1px solid var(--border2); border-radius: 3px;
+      font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+      font-family: var(--mono); background: none; color: var(--text3); cursor: pointer;
+      transition: all 0.12s;
+    }
+    .view-btn.active { border-color: var(--blue); color: var(--blue); }
+
+    /* Stats */
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+    .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; }
+    .stat-label { font-size: 9px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+    .stat-value { font-family: var(--sans); font-size: 24px; font-weight: 600; color: #f0f0f0; line-height: 1; }
+    .stat-sub { font-size: 10px; color: #2e2e48; margin-top: 5px; }
+
+    /* Controls */
+    .controls { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+    .control-group { display: flex; align-items: center; gap: 8px; }
+    .control-label { font-size: 9px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; }
+    select {
+      background: var(--bg2); border: 1px solid var(--border2); color: #bbb;
+      padding: 4px 8px; border-radius: 3px; font-size: 11px; font-family: var(--mono);
+      outline: none; cursor: pointer;
+    }
+    .legend { margin-left: auto; display: flex; gap: 14px; align-items: center; }
+    .legend-item { display: flex; gap: 5px; align-items: center; }
+    .legend-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .legend-label { font-size: 9px; color: #333; letter-spacing: 1px; }
+
+    /* Calendar */
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+    .cal-header { text-align: center; font-size: 9px; color: #2a2a42; letter-spacing: 2px; padding-bottom: 8px; }
+    .cal-empty { min-height: 86px; }
+    .cal-day {
+      background: #0a0a12; border: 1px solid #12121e; border-radius: 5px;
+      padding: 9px 9px 7px; min-height: 86px; transition: border-color 0.12s;
+    }
+    .cal-day.has-events { cursor: pointer; }
+    .cal-day.has-events:hover { border-color: rgba(255,255,255,0.2); }
+    .cal-day.selected { outline: 1px solid rgba(74,143,255,0.2); }
+    .cal-day-num { font-size: 12px; color: #444; display: flex; justify-content: space-between; align-items: flex-start; }
+    .cal-day-num.today { color: #fff; font-weight: 600; }
+    .cal-risk-dot { width: 5px; height: 5px; border-radius: 50%; margin-top: 3px; }
+    .cal-usd { font-size: 10px; font-weight: 500; margin-top: 5px; }
+    .cal-count { font-size: 9px; color: #333; margin-top: 2px; }
+    .cal-chips { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 2px; }
+    .cal-chip { font-size: 8px; background: rgba(255,255,255,0.05); padding: 1px 4px; border-radius: 2px; color: #555; }
+    .cal-more { font-size: 8px; color: #333; }
+
+    /* Day detail panel */
+    .day-detail {
+      margin-top: 16px; background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px;
+    }
+    .day-detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .day-detail-title { font-size: 13px; color: #ccc; font-family: var(--sans); }
+    .day-detail-eyebrow { font-size: 10px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; margin-right: 10px; }
+    .close-btn {
+      background: none; border: 1px solid var(--border2); color: var(--text3);
+      padding: 3px 10px; border-radius: 3px; cursor: pointer; font-size: 10px; font-family: var(--mono);
+    }
+
+    /* List view */
+    .list-date-block { margin-bottom: 28px; }
+    .list-date-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-bottom: 10px; border-bottom: 1px solid #12121e; margin-bottom: 10px;
+    }
+    .list-date-left { display: flex; gap: 10px; align-items: center; }
+    .list-date-label { font-size: 12px; color: #777; letter-spacing: 0.5px; }
+    .list-date-total { font-size: 11px; color: #333; }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    thead tr { border-bottom: 1px solid #12121e; }
+    th { text-align: left; padding: 5px 10px; font-size: 8px; color: #2a2a42; letter-spacing: 2px; text-transform: uppercase; font-weight: 400; }
+    tbody tr { border-bottom: 1px solid #0e0e18; transition: background 0.1s; }
+    tbody tr:hover { background: rgba(255,255,255,0.03); }
+    td { padding: 8px 10px; }
+    .td-risk { display: flex; align-items: center; gap: 5px; }
+    .td-risk-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+    .td-risk-label { font-size: 8px; letter-spacing: 1px; }
+    .td-symbol { font-weight: 600; font-size: 12px; color: #e8e8e8; }
+    .td-name { font-size: 9px; color: #333; margin-top: 1px; }
+    .td-price { color: #666; }
+    .td-change-pos { color: var(--green); }
+    .td-change-neg { color: #cc4444; }
+    .td-usd { color: #f0f0f0; font-weight: 600; font-size: 12px; }
+    .td-tokens { color: #555; }
+    .td-bar-wrap { display: flex; align-items: center; gap: 7px; }
+    .td-bar-bg { width: 44px; height: 2px; background: #141420; border-radius: 1px; overflow: hidden; flex-shrink: 0; }
+    .td-bar-fill { height: 100%; border-radius: 1px; }
+    .td-supply { color: #333; }
+    .td-alloc-name { font-size: 10px; color: #777; }
+    .td-alloc-type { font-size: 9px; color: var(--text3); margin-top: 1px; }
+    .td-alloc-none { font-size: 9px; color: #222; }
+
+    /* Empty state */
+    .empty { text-align: center; color: #2a2a3a; padding: 60px 0; font-size: 12px; }
+
+    /* No data banner */
+    .no-data-banner {
+      background: rgba(232,197,71,0.08); border: 1px solid rgba(232,197,71,0.2);
+      border-radius: 6px; padding: 12px 16px; margin-bottom: 20px;
+      font-size: 11px; color: #e8c547;
+    }
+
+    @media (max-width: 800px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .cal-grid { grid-template-columns: repeat(7, 1fr); gap: 3px; }
+      .legend { display: none; }
+      body { padding: 16px; }
+    }
+    @media (max-width: 500px) {
+      .stats { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<!-- data.js is generated daily by GitHub Actions and injects UNLOCK_DATA + META -->
+<script src="data.js"></script>
+
+<script>
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const fmt = n => n >= 1e6 ? `$${(n/1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n/1e3).toFixed(0)}K` : `$${n.toFixed(0)}`;
+const fmtPct = n => `${n.toFixed(2)}%`;
+const fmtTokens = n => n >= 1e6 ? `${(n/1e6).toFixed(2)}M` : n >= 1e3 ? `${(n/1e3).toFixed(0)}K` : n.toFixed(0);
+const fmtPrice = p => p < 0.001 ? p.toFixed(7) : p < 0.01 ? p.toFixed(5) : p < 1 ? p.toFixed(4) : p.toFixed(2);
+
+const RISK_CFG = {
+  critical: { color: '#ff4040', bg: 'rgba(255,64,64,0.08)',  border: 'rgba(255,64,64,0.25)',  label: 'CRITICAL' },
+  high:     { color: '#ff8c00', bg: 'rgba(255,140,0,0.07)',  border: 'rgba(255,140,0,0.22)',  label: 'HIGH' },
+  medium:   { color: '#e8c547', bg: 'rgba(232,197,71,0.06)', border: 'rgba(232,197,71,0.2)',  label: 'MED' },
+  low:      { color: '#4a8fff', bg: 'rgba(74,143,255,0.04)', border: 'rgba(74,143,255,0.15)', label: 'LOW' },
+};
+const RISK_ORDER = ['low','medium','high','critical'];
+
+function getRisk(usd, pct) {
+  if (pct >= 2   || usd >= 1000000) return 'critical';
+  if (pct >= 0.5 || usd >= 250000)  return 'high';
+  if (pct >= 0.1 || usd >= 50000)   return 'medium';
+  return 'low';
+}
+function topRisk(tokens) {
+  return tokens.reduce((top, t) => {
+    const r = getRisk(t.next_unlock_usd, t.pct_circ);
+    return RISK_ORDER.indexOf(r) > RISK_ORDER.indexOf(top) ? r : top;
+  }, 'low');
+}
+function groupByDate(data) {
+  const map = {};
+  for (const d of data) {
+    const key = new Date(d.next_unlock_date).toISOString().split('T')[0];
+    if (!map[key]) map[key] = [];
+    map[key].push(d);
+  }
+  return map;
+}
+function sortTokens(arr, by) {
+  return [...arr].sort((a,b) => by === 'usd' ? b.next_unlock_usd - a.next_unlock_usd : b.pct_circ - a.pct_circ);
+}
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let state = {
+  view: 'calendar',
+  selectedDay: null,
+  minUsd: 0,
+  minPct: 0,
+  sortBy: 'usd',
+};
+
+// ─── Data ─────────────────────────────────────────────────────────────────────
+const rawData = (typeof UNLOCK_DATA !== 'undefined') ? UNLOCK_DATA : [];
+const meta    = (typeof UNLOCK_META !== 'undefined') ? UNLOCK_META : null;
+const hasData = rawData.length > 0;
+
+// TODAY: use meta.generated_at if available, else today
+const today = meta ? new Date(meta.generated_at) : new Date();
+today.setHours(0,0,0,0);
+const todayKey = today.toISOString().split('T')[0];
+const windowEnd = new Date(today);
+windowEnd.setDate(windowEnd.getDate() + 30);
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function getFiltered() {
+  return rawData.filter(d => {
+    const dt = new Date(d.next_unlock_date);
+    return d.next_unlock_usd >= state.minUsd
+      && d.pct_circ >= state.minPct
+      && dt >= today
+      && dt <= windowEnd;
+  });
+}
+
+function render() {
+  const filtered = getFiltered();
+  const grouped = groupByDate(filtered);
+  const sortedDates = Object.keys(grouped).sort();
+  const totalUsd = filtered.reduce((s,d) => s + d.next_unlock_usd, 0);
+  const critCount = filtered.filter(d => getRisk(d.next_unlock_usd, d.pct_circ) === 'critical').length;
+  const highCount = filtered.filter(d => getRisk(d.next_unlock_usd, d.pct_circ) === 'high').length;
+  const biggest = filtered.reduce((m,d) => d.next_unlock_usd > (m?.next_unlock_usd||0) ? d : m, null);
+
+  // Build 30-day array
+  const calDays = Array.from({length:30}, (_,i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + i);
+    const key = d.toISOString().split('T')[0];
+    return { date: d, key, tokens: sortTokens(grouped[key]||[], state.sortBy) };
+  });
+  const startOffset = (today.getDay() + 6) % 7;
+
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <!-- Header -->
+    <div class="header">
+      <div class="header-eyebrow">coinglass · token unlock tracker</div>
+      <div class="header-row">
+        <div>
+          <div class="header-title">Unlock Calendar</div>
+          <div class="header-sub">
+            ${today.toLocaleDateString('en-US',{month:'long',day:'numeric'})} — ${windowEnd.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}
+          </div>
+          ${meta ? `<div class="header-meta">Last updated: ${new Date(meta.generated_at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit',timeZoneName:'short'})}</div>` : ''}
+        </div>
+        <div class="view-toggle">
+          <button class="view-btn ${state.view==='calendar'?'active':''}" onclick="setState({view:'calendar',selectedDay:null})">Calendar</button>
+          <button class="view-btn ${state.view==='list'?'active':''}" onclick="setState({view:'list',selectedDay:null})">List</button>
+        </div>
+      </div>
+    </div>
+
+    ${!hasData ? `<div class="no-data-banner">⚠ No data loaded yet. GitHub Actions will populate this on its first run. <a href="#setup" style="color:inherit">Setup instructions below.</a></div>` : ''}
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-label">30-Day Unlock Value</div>
+        <div class="stat-value">${fmt(totalUsd)}</div>
+        <div class="stat-sub">across ${filtered.length} tokens</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Critical Events</div>
+        <div class="stat-value" style="color:var(--red)">${critCount}</div>
+        <div class="stat-sub">&gt;$1M or &gt;2% circ</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">High Risk Events</div>
+        <div class="stat-value" style="color:var(--orange)">${highCount}</div>
+        <div class="stat-sub">&gt;$250K or &gt;0.5% circ</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Largest Unlock</div>
+        <div class="stat-value">${biggest ? fmt(biggest.next_unlock_usd) : '—'}</div>
+        <div class="stat-sub">${biggest?.symbol||''}</div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <div class="control-group">
+        <span class="control-label">Min USD</span>
+        <select onchange="setState({minUsd:+this.value,selectedDay:null})">
+          ${[[0,'All'],[10000,'$10K+'],[50000,'$50K+'],[100000,'$100K+'],[250000,'$250K+'],[500000,'$500K+'],[1000000,'$1M+']].map(([v,l])=>`<option value="${v}" ${state.minUsd==v?'selected':''}>${l}</option>`).join('')}
+        </select>
+      </div>
+      <div class="control-group">
+        <span class="control-label">Min % Circ</span>
+        <select onchange="setState({minPct:+this.value,selectedDay:null})">
+          ${[[0,'All'],[0.1,'0.1%+'],[0.5,'0.5%+'],[1,'1%+'],[2,'2%+'],[3,'3%+']].map(([v,l])=>`<option value="${v}" ${state.minPct==v?'selected':''}>${l}</option>`).join('')}
+        </select>
+      </div>
+      <div class="control-group">
+        <span class="control-label">Sort by</span>
+        <select onchange="setState({sortBy:this.value,selectedDay:null})">
+          <option value="usd" ${state.sortBy==='usd'?'selected':''}>USD Value</option>
+          <option value="pct" ${state.sortBy==='pct'?'selected':''}>% of Circ</option>
+        </select>
+      </div>
+      <div class="legend">
+        ${Object.entries(RISK_CFG).map(([k,v])=>`
+          <div class="legend-item">
+            <div class="legend-dot" style="background:${v.color}"></div>
+            <span class="legend-label">${v.label}</span>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- Calendar View -->
+    ${state.view === 'calendar' ? `
+      <div class="cal-grid">
+        ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div class="cal-header">${d.toUpperCase()}</div>`).join('')}
+        ${Array.from({length:startOffset}).map(()=>'<div class="cal-empty"></div>').join('')}
+        ${calDays.map(({date,key,tokens}) => {
+          const hasEv = tokens.length > 0;
+          const risk = topRisk(tokens);
+          const cfg = RISK_CFG[risk];
+          const dayUsd = tokens.reduce((s,t)=>s+t.next_unlock_usd,0);
+          const isToday = key === todayKey;
+          const isSel = state.selectedDay === key;
+          return `
+            <div class="cal-day ${hasEv?'has-events':''} ${isSel?'selected':''}"
+              style="${hasEv?`background:${cfg.bg};border-color:${isSel?cfg.color:cfg.border};`:''}"
+              ${hasEv?`onclick="toggleDay('${key}')"`:''}>
+              <div class="cal-day-num ${isToday?'today':''}">
+                <span>${date.getDate()}</span>
+                ${hasEv?`<div class="cal-risk-dot" style="background:${cfg.color}"></div>`:''}
+              </div>
+              ${hasEv?`
+                <div class="cal-usd" style="color:${cfg.color}">${fmt(dayUsd)}</div>
+                <div class="cal-count">${tokens.length}T</div>
+                <div class="cal-chips">
+                  ${tokens.slice(0,3).map(t=>`<span class="cal-chip">${t.symbol}</span>`).join('')}
+                  ${tokens.length>3?`<span class="cal-more">+${tokens.length-3}</span>`:''}
+                </div>`:''}
+            </div>`;
+        }).join('')}
+      </div>
+
+      ${state.selectedDay && grouped[state.selectedDay] ? `
+        <div class="day-detail">
+          <div class="day-detail-header">
+            <div class="day-detail-title">
+              <span class="day-detail-eyebrow">Unlocks</span>
+              ${new Date(state.selectedDay).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}
+            </div>
+            <button class="close-btn" onclick="setState({selectedDay:null})">close ✕</button>
+          </div>
+          ${renderTable(sortTokens(grouped[state.selectedDay], state.sortBy))}
+        </div>` : ''}
+    ` : ''}
+
+    <!-- List View -->
+    ${state.view === 'list' ? `
+      ${sortedDates.length === 0 ? '<div class="empty">No events match current filters</div>' :
+        sortedDates.map(dk => {
+          const tokens = sortTokens(grouped[dk], state.sortBy);
+          const dayUsd = tokens.reduce((s,t)=>s+t.next_unlock_usd,0);
+          const risk = topRisk(tokens);
+          const cfg = RISK_CFG[risk];
+          return `
+            <div class="list-date-block">
+              <div class="list-date-header">
+                <div class="list-date-left">
+                  <div class="legend-dot" style="background:${cfg.color}"></div>
+                  <span class="list-date-label">${new Date(dk).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})}</span>
+                </div>
+                <span class="list-date-total">${fmt(dayUsd)} · ${tokens.length} token${tokens.length>1?'s':''}</span>
+              </div>
+              ${renderTable(tokens)}
+            </div>`;
+        }).join('')}
+    ` : ''}
+  `;
+}
+
+function renderTable(tokens) {
+  return `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th></th><th>Token</th><th>Price</th><th>24h Δ</th>
+            <th>Unlock Value</th><th>Tokens</th><th>% Circ</th><th>% Supply</th><th>Allocation</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tokens.map(t => {
+            const risk = getRisk(t.next_unlock_usd, t.pct_circ);
+            const cfg = RISK_CFG[risk];
+            const barW = Math.min((t.pct_circ/8)*100, 100);
+            return `
+              <tr>
+                <td>
+                  <div class="td-risk">
+                    <div class="td-risk-dot" style="background:${cfg.color}"></div>
+                    <span class="td-risk-label" style="color:${cfg.color}">${cfg.label}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="td-symbol">${t.symbol}</div>
+                  <div class="td-name">${t.name}</div>
+                </td>
+                <td class="td-price">$${fmtPrice(t.price)}</td>
+                <td class="${t.price_change_24h >= 0 ? 'td-change-pos' : 'td-change-neg'}">
+                  ${t.price_change_24h != null ? (t.price_change_24h>=0?'+':'') + t.price_change_24h.toFixed(2)+'%' : '—'}
+                </td>
+                <td class="td-usd">${fmt(t.next_unlock_usd)}</td>
+                <td class="td-tokens">${fmtTokens(t.next_unlock_tokens)}</td>
+                <td>
+                  <div class="td-bar-wrap">
+                    <div class="td-bar-bg">
+                      <div class="td-bar-fill" style="width:${barW}%;background:${cfg.color}"></div>
+                    </div>
+                    <span style="color:${cfg.color}">${fmtPct(t.pct_circ)}</span>
+                  </div>
+                </td>
+                <td class="td-supply">${fmtPct(t.pct_supply)}</td>
+                <td>
+                  ${t.allocation_type
+                    ? `<div class="td-alloc-name">${t.allocation_type}</div><div class="td-alloc-type">${t.vesting_type||''}</div>`
+                    : `<span class="td-alloc-none">—</span>`}
+                </td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ─── State management ─────────────────────────────────────────────────────────
+function setState(updates) {
+  Object.assign(state, updates);
+  render();
+}
+function toggleDay(key) {
+  setState({ selectedDay: state.selectedDay === key ? null : key });
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
