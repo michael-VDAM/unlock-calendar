@@ -41,7 +41,7 @@ jobs:
                 path,
                 method: 'GET',
                 headers: {
-                  'coinglassSecret': API_KEY,
+                  'CG-API-KEY': API_KEY,
                   'Content-Type': 'application/json',
                 },
               };
