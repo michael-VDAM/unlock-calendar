@@ -224,7 +224,7 @@ const today = meta ? new Date(meta.generated_at) : new Date();
 today.setHours(0,0,0,0);
 const todayKey = today.toISOString().split('T')[0];
 const windowEnd = new Date(today);
-windowEnd.setDate(windowEnd.getDate() + 30);
+windowEnd.setDate(windowEnd.getDate() + 180);
 
 // ─── Render ───────────────────────────────────────────────────────────────────
 function getFiltered() {
