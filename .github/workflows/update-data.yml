@@ -69,19 +69,18 @@ jobs:
               throw new Error(`Unexpected response: ${JSON.stringify(listRes).slice(0,300)}`);
             }
 
-            const now = Date.now();
             console.log(`Total tokens from API: ${listRes.data.length}`);
 
-            // Dedupe by symbol, keep all future unlocks
+            // Dedupe by symbol only, no date filtering
             const seen = new Set();
             const tokens = listRes.data.filter(t => {
               if (!t.next_unlock_date) return false;
               if (seen.has(t.symbol)) return false;
               seen.add(t.symbol);
-              return t.next_unlock_date >= now;
+              return true;
             });
 
-            console.log(`Found ${tokens.length} tokens with upcoming unlocks`);
+            console.log(`Kept ${tokens.length} tokens after dedup`);
 
             const normalized = tokens.map(t => ({
               symbol:             t.symbol,
