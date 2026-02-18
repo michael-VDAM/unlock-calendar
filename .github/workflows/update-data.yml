@@ -86,7 +86,7 @@ jobs:
               seen.add(t.symbol);
               return dt >= now && dt <= now + thirtyDays;
             });
-
+            console.log('Raw API sample:', JSON.stringify(listRes.data.slice(0,2)));
             console.log(`Found ${tokens.length} tokens with unlocks in next 30 days`);
 
             // Normalize base fields
