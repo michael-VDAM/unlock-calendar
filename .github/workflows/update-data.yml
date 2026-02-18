@@ -75,17 +75,16 @@ jobs:
             }
 
             const now = Date.now();
-            const thirtyDays = 180 * 24 * 60 * 60 * 1000;
 
             // Filter to next 30 days and dedupe by symbol
             const seen = new Set();
-            const tokens = listRes.data.filter(t => {
-              const dt = t.next_unlock_date;
-              if (!dt) return false;
-              if (seen.has(t.symbol)) return false;
-              seen.add(t.symbol);
-              return dt >= now && dt <= now + thirtyDays;
-            });
+           const tokens = listRes.data.filter(t => {
+            const dt = t.next_unlock_date;
+            if (!dt) return false;
+            if (seen.has(t.symbol)) return false;
+            seen.add(t.symbol);
+            return dt >= now;
+          });
             console.log('Raw API sample:', JSON.stringify(listRes.data.slice(0,2)));
             console.log(`Found ${tokens.length} tokens with unlocks in next 30 days`);
 
