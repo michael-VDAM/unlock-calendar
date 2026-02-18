@@ -78,7 +78,7 @@ jobs:
               if (!t.next_unlock_date) return false;
               if (seen.has(t.symbol)) return false;
               seen.add(t.symbol);
-              return t.next_unlock_date * 1000 >= now;
+              return t.next_unlock_date >= now;
             });
 
             console.log(`Found ${tokens.length} tokens with upcoming unlocks`);
@@ -89,7 +89,7 @@ jobs:
               price:              t.price || 0,
               price_change_24h:   t.price_change_percent_24h ?? null,
               market_cap:         t.market_cap || 0,
-              next_unlock_date:   t.next_unlock_date * 1000,
+              next_unlock_date:   t.next_unlock_date,
               next_unlock_usd:    t.next_unlock_usd || 0,
               next_unlock_tokens: t.next_unlock_tokens || 0,
               pct_circ:           t.next_unlock_of_circulating || 0,
